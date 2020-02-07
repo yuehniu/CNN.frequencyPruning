@@ -1,0 +1,103 @@
+KeysView(<numpy.lib.npyio.NpzFile object at 0x7f91f05345f8>)
+(3, 64, 8, 8)
+(64, 64, 8, 8)
+pool1:  (64, 16, 16, 64)
+(64, 128, 8, 8)
+(128, 128, 8, 8)
+pool2:  (64, 8, 8, 128)
+pool3:  (64, 4, 4, 256)
+pool4:  (64, 2, 2, 512)
+pool5:  (64, 1, 1, 512)
+conv1_1/fft_conv/kernel_real:0
+conv1_1/fft_conv/kernel_imag:0
+conv1_2/fft_conv_1/kernel_real:0
+conv1_2/fft_conv_1/kernel_imag:0
+conv2_1/fft_conv_2/kernel_real:0
+conv2_1/fft_conv_2/kernel_imag:0
+conv2_2/fft_conv_3/kernel_real:0
+conv2_2/fft_conv_3/kernel_imag:0
+conv1_1/fft_conv/kernel_real:0
+conv1_1/fft_conv/kernel_imag:0
+conv1_1/fft_conv/bias:0
+conv1_1/batch_normalization/gamma:0
+conv1_1/batch_normalization/beta:0
+conv1_1/batch_normalization/moving_mean:0
+conv1_1/batch_normalization/moving_variance:0
+conv1_2/fft_conv_1/kernel_real:0
+conv1_2/fft_conv_1/kernel_imag:0
+conv1_2/fft_conv_1/bias:0
+conv1_2/batch_normalization/gamma:0
+conv1_2/batch_normalization/beta:0
+conv1_2/batch_normalization/moving_mean:0
+conv1_2/batch_normalization/moving_variance:0
+conv2_1/fft_conv_2/kernel_real:0
+conv2_1/fft_conv_2/kernel_imag:0
+conv2_1/fft_conv_2/bias:0
+conv2_1/batch_normalization/gamma:0
+conv2_1/batch_normalization/beta:0
+conv2_1/batch_normalization/moving_mean:0
+conv2_1/batch_normalization/moving_variance:0
+conv2_2/fft_conv_3/kernel_real:0
+conv2_2/fft_conv_3/kernel_imag:0
+conv2_2/fft_conv_3/bias:0
+conv2_2/batch_normalization/gamma:0
+conv2_2/batch_normalization/beta:0
+conv2_2/batch_normalization/moving_mean:0
+conv2_2/batch_normalization/moving_variance:0
+conv3_1/bias:0
+conv3_1/kernel:0
+conv3_1/batch_normalization/gamma:0
+conv3_1/batch_normalization/beta:0
+conv3_1/batch_normalization/moving_mean:0
+conv3_1/batch_normalization/moving_variance:0
+conv3_2/bias:0
+conv3_2/kernel:0
+conv3_2/batch_normalization/gamma:0
+conv3_2/batch_normalization/beta:0
+conv3_2/batch_normalization/moving_mean:0
+conv3_2/batch_normalization/moving_variance:0
+conv3_3/bias:0
+conv3_3/kernel:0
+conv3_3/batch_normalization/gamma:0
+conv3_3/batch_normalization/beta:0
+conv3_3/batch_normalization/moving_mean:0
+conv3_3/batch_normalization/moving_variance:0
+conv4_1/bias:0
+conv4_1/kernel:0
+conv4_1/batch_normalization/gamma:0
+conv4_1/batch_normalization/beta:0
+conv4_1/batch_normalization/moving_mean:0
+conv4_1/batch_normalization/moving_variance:0
+conv4_2/bias:0
+conv4_2/kernel:0
+conv4_2/batch_normalization/gamma:0
+conv4_2/batch_normalization/beta:0
+conv4_2/batch_normalization/moving_mean:0
+conv4_2/batch_normalization/moving_variance:0
+conv4_3/bias:0
+conv4_3/kernel:0
+conv4_3/batch_normalization/gamma:0
+conv4_3/batch_normalization/beta:0
+conv4_3/batch_normalization/moving_mean:0
+conv4_3/batch_normalization/moving_variance:0
+conv5_1/bias:0
+conv5_1/kernel:0
+conv5_1/batch_normalization/gamma:0
+conv5_1/batch_normalization/beta:0
+conv5_1/batch_normalization/moving_mean:0
+conv5_1/batch_normalization/moving_variance:0
+conv5_2/bias:0
+conv5_2/kernel:0
+conv5_2/batch_normalization/gamma:0
+conv5_2/batch_normalization/beta:0
+conv5_2/batch_normalization/moving_mean:0
+conv5_2/batch_normalization/moving_variance:0
+conv5_3/bias:0
+conv5_3/kernel:0
+conv5_3/batch_normalization/gamma:0
+conv5_3/batch_normalization/beta:0
+conv5_3/batch_normalization/moving_mean:0
+conv5_3/batch_normalization/moving_variance:0
+fc3/dense/kernel:0
+fc3/dense/bias:0
+Train with ADMM...

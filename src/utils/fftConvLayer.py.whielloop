@@ -1,0 +1,171 @@
+import tensorflow as tf
+import numpy as np
+from option.options import opt
+
+class FFTConv(tf.keras.layers.Layer):
+  def __init__(self, FFTSize, TilSize, Wreal, Wimag, B, K, Mode='valid'):
+    """ 
+    FFTSize: FFT window size for kernel and input
+    TilSize: Tile size when decomposing input
+    W: Initial spatial weights [h,w,ichnl,ochnl]
+    B: Initial spatial bias
+    K: Keep K nonzeros values
+    """
+    super(FFTConv, self).__init__()
+    self.fftsize = FFTSize
+    self.tilsize = TilSize
+    self.krnsize = FFTSize - TilSize + 1
+    self.ichnl = Wreal.shape[0]
+    self.ochnl = Wreal.shape[1]
+    self.binit = B
+    self.k = K
+    self.mode=Mode
+    # padsize = self.fftsize - self.krnsize
+    # pads = ((0,0),(0,0),(0,padsize),(0,padsize))
+    # wpad = np.pad(np.transpose(self.winit, (3,2,0,1)), pads, "constant")
+    # self.wfftinit = np.fft.fft2(wpad)
+    self.mask = np.zeros_like(Wreal, dtype=bool)
+    print(Wreal.shape)
+    if opt.admm:
+      self.wrealinit = np.transpose(Wreal, (1,0,2,3))
+      self.wimaginit = np.transpose(Wimag, (1,0,2,3))
+    else:
+      for oc in range(self.ochnl):
+        for ic in range(self.ichnl):
+          w = Wreal[ic,oc,:,:] + 1j*Wimag[ic,oc,:,:]
+          wabs = np.abs(w)
+          wsort = np.sort(wabs, axis=None) 
+          topk = wsort[-self.k]
+          self.mask[ic, oc, :, :] = wabs >= topk
+      if opt.ffttrain: 
+        self.wrealinit = np.multiply(Wreal, self.mask)
+        self.wimaginit = np.multiply(Wimag, self.mask)
+      else:
+        self.wrealinit = np.transpose(np.multiply(Wreal, self.mask), (1,0,2,3))
+        self.wimaginit = np.transpose(np.multiply(Wimag, self.mask), (1,0,2,3))
+        self.mask = np.transpose(self.mask, (1,0,2,3))
+
+  def build(self, DimInput):
+    """ Set weights and bias in frequency domain
+    DimInput: Input dimension [batch,h,w,ichnl]
+    """
+    # Setup weight and bias
+    # self.wfftinit = tf.cast(self.wfftinit, tf.complex64) 
+    self.wreal = tf.Variable(self.wrealinit, name='kernel_real')
+    self.wimag = tf.Variable(self.wimaginit, name='kernel_imag')
+    if opt.admm:
+      self.wfft = tf.complex(self.wreal, self.wimag)
+    else:
+      self.wfft = tf.multiply(tf.complex(self.wreal, self.wimag), tf.cast(self.mask, tf.complex64))
+    self.b = tf.Variable(self.binit, name='bias')
+
+    # Setup number of input tiles
+    self.imwidth = DimInput[2].value
+    self.imheight = DimInput[1].value 
+    self.cols = int(np.ceil(self.imwidth/self.tilsize))
+    self.rows = int(np.ceil(self.imheight/self.tilsize))
+    self.ocols = tf.zeros([opt.batchsize, self.fftsize, self.imheight, self.ochnl])
+    self.orows = tf.zeros([opt.batchsize, self.imheight, self.imheight+self.tilsize, self.ochnl])
+
+  # TODO
+  #def condition(r,c):
+  #  return (r<self.rows and c<self.cols)
+
+  def call(self, Input):
+    """ Build layer ops
+    Input: Input feature map
+    """
+    def condition(rc,orows, ocols):
+      return (rc) < (self.rows*self.cols)
+
+    def body(rc,orows, ocols):
+      r = tf.cast(rc/self.cols, tf.int32)
+      c = tf.cast(rc%self.cols, tf.int32)
+      irealtilh = tf.cond(r<(self.rows-1), lambda: self.tilsize, lambda: self.imheight-(r*self.tilsize))
+      #if r==(self.rows-1):
+      #  irealtilh = self.imheight - (r*self.tilsize)
+      #else:
+      #  irealtilh = self.tilsize
+      irealtilw = tf.cond(c<(self.cols-1), lambda: self.tilsize, lambda: self.imwidth-(c*self.tilsize))
+      #if c==(self.cols-1):
+      #  irealtilw = self.imwidth - (c*self.tilsize)
+      #else:
+      #  irealtilw = self.tilsize
+
+      orealtilw = irealtilw + self.krnsize - 1
+      orealtilh = irealtilh + self.krnsize - 1
+        
+      # Extract one tile
+      # offset = [[r*self.tilsize+irealtilh/2, c*self.tilsize+irealtilw/2] for i in range(opt.batchsize)]
+      offset = [r*self.tilsize, c*self.tilsize]
+      # itil = tf.image.extract_glimpse(Input, [irealtilh,irealtilw], offset, centered=False, normalized=False)
+      itil = tf.image.crop_to_bounding_box(Input, offset[0], offset[1], irealtilh, irealtilw )
+      # padh = self.fftsize - irealtilh
+      # padw = self.fftsize - realtilw
+      itilpads = tf.image.pad_to_bounding_box(itil, 0, 0, self.fftsize, self.fftsize)
+      
+      # Convolution in frequency domain
+      itilpads = tf.transpose(itilpads, perm=[0, 3, 1, 2]) #[batch,h,w,ichannel]->[batch,ichannel,h,w]
+      itilfft = tf.spectral.fft2d(tf.cast(itilpads, tf.complex64))
+      otil = self.hadamard(itilfft)
+      otil = tf.transpose(otil, perm=[1,2,3,0]) #[ochnl,batch,h,w]-->[batch,h,w,ochnl]
+       
+      otilcrop = tf.image.crop_to_bounding_box(otil, 0, 0, orealtilh, orealtilw)
+      
+      # Concat tiles along cols
+      overlapcols = self.krnsize - 1
+      overlaprows = self.krnsize - 1
+      ocols = tf.cond(c>0, lambda:tf.concat([ocols[:,:,0:-overlapcols,:], ocols[:,:,-overlapcols:,:] + otilcrop[:,:,0:overlapcols,:],otilcrop[:,:,overlapcols:,:]], 2), lambda: otilcrop)
+      #if 0 == c:
+      #  ocols = otilcrop
+      #else:
+      #  overlapcols = self.krnsize - 1
+      #  overlap =  ocols[:,:,-overlapcols:,:] + otilcrop[:,:,0:overlapcols,:] 
+      #  ocols = tf.concat([ocols[:,:,0:-overlapcols,:], overlap, otilcrop[:,:,overlapcols:,:]], 2)
+      orows = tf.cond(tf.equal(c, self.cols-1), lambda: tf.cond(r>0, lambda:tf.concat([orows[:,0:-overlaprows,:,:],orows[:,-overlaprows:,:,:] + ocols[:,0:overlaprows,:,:], ocols[:,overlaprows:,:,:]], 1), lambda: ocols), lambda: orows)
+      #if c==self.cols:
+      #  # Concat tiles among rows
+      #  if 0 == r:
+      #    orows = ocols
+      #  else:
+      #    overlaprows = self.krnsize - 1
+      #    overlap = orows[:,-overlaprows:,:,:] + ocols[:,0:overlaprows,:,:]
+      #    orows = tf.concat([orows[:,0:-overlaprows,:,:], overlap, ocols[:,overlaprows:,:,:]], 1)
+      rc = rc+1
+      return rc,orows,ocols
+    rc,Orows,_ = tf.while_loop(condition, body, [0,self.orows, self.ocols], 
+      shape_invariants=[tf.TensorShape([]),tf.TensorShape([opt.batchsize, None, None, self.ochnl]),tf.TensorShape([opt.batchsize, None, None, self.ochnl])])
+    # output = tf.transpose(output, perm=[0,2,3,1])
+    bias = tf.expand_dims(tf.expand_dims(tf.expand_dims(self.b, 0), 0),0)
+    #bias = tf.tile(bias, [opt.batchsize, 1, 1, 1])
+    output = Orows + bias
+    if self.mode=='valid':
+      crops = self.krnsize-1;
+      owidth = self.imwidth - (self.krnsize-1)
+      oheight = self.imheight - (self.krnsize-1)
+    elif self.mode=='same':
+      crops = self.krnsize-2
+      owidth = self.imwidth
+      oheight = self.imheight
+    return tf.image.crop_to_bounding_box(output, crops, crops, oheight, owidth)
+
+  def hadamard(self, ITil):
+    """ Modified Hadamard product
+    ITil: Frequency-domain input
+    """
+    wfft_expand = tf.expand_dims(self.wfft, 1)
+    wfft_batch = tf.tile(wfft_expand,[1, opt.batchsize, 1, 1, 1])
+    otils = tf.multiply(wfft_batch, ITil)
+    otilbatch = tf.spectral.ifft2d(tf.reduce_sum(otils, 2))
+    otilbatch = tf.real(otilbatch)
+    # otilfft0 = tf.multiply(self.wfft, ITil[0,:])
+    # otilbatch0 = tf.spectral.ifft2d(tf.reduce_sum(otilfft0, 1))
+    # #otilbatch0 = tf.reduce_sum(tf.spectral.ifft2d(otilfft0), 1)
+    # otilbatch = tf.expand_dims(tf.real(otilbatch0), 0) 
+    # for b in range(1, opt.batchsize):
+    #   otilffti = tf.multiply(self.wfft, ITil[b,:]) 
+    #   otilbatchi = tf.spectral.ifft2d(tf.reduce_sum(otilffti, 1))
+    #   #otilbatchi = tf.reduce_sum(tf.spectral.ifft2d(otilffti), 1)
+    #   otilbatch = tf.concat([otilbatch, tf.expand_dims(tf.real(otilbatchi), 0)], 0)
+
+    return otilbatch
