@@ -27,6 +27,8 @@ A frequency-domain pruning implementation using ADMM
 |
 |--/checkpoint: train checkpoints.
 |
+|--run.py: main function.
+|
 |--run.sh: run scripts
 |
 |--viewkernel.py: visualize kernels
