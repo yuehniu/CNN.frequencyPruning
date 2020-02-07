@@ -4,8 +4,8 @@ A frequency-domain pruning implementation using ADMM
 ## Environment
 
 * Python: 3.6
-* Tensorflow: 1.12
-* CUDA: 8.0
+* Tensorflow: 1.12 or higher (tf.dataset requires >= 1.14)
+* CUDA: 8.0 or higher (tf1.14 requires CUDA >= 9)
 
 ## Dir
 ```
@@ -21,9 +21,11 @@ A frequency-domain pruning implementation using ADMM
 |    |
 |    |--/utils: various utils, like layer defition.
 |    
-|--log: train logs (not included in git).
+|--/log: train logs (not included in git).
 |    
-|--result: some visualization of trained kernels.
+|--/result: some visualization of trained kernels.
+|
+|--/checkpoint: train checkpoints.
 |
 |--run.sh: run scripts
 |
